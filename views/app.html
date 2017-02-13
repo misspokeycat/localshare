@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>localshare</title>
+        <script src="https://unpkg.com/react@15.4.2/dist/react.js"></script>
+        <script src="https://unpkg.com/react-dom@15.4.2/dist/react-dom.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.18.1/babel.min.js"></script>
+        <script src="https://unpkg.com/jquery@3.1.1/dist/jquery.min.js"></script>
+        <script src="https://unpkg.com/remarkable@1.6.2/dist/remarkable.min.js"></script>
+        <script src="https://npmcdn.com/react-bootstrap-table/dist/react-bootstrap-table.min.js"></script>
+        <script src="https://unpkg.com/react-dropzone-component@1.4.1/dist/react-dropzone.min.js"></script>
+        <link rel="stylesheet" href="https://npmcdn.com/react-bootstrap-table/dist/react-bootstrap-table-all.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+        <script>
+          var ReactBsTable = window.BootstrapTable;
+        </script>
+    </head>
+    <body>
+        <span id="uploaderBox"></span>
+        <span id="content">
+        <script type="text/babel">
+                var ShareApp = React.createClass({
+                    initProbe: function(){
+                      //Gets IP
+                      $.ajax({
+                        url: "https://api.ipify.org?format=json",
+                        dataType: 'json',
+                        cache: true,
+                        success: function(data){
+                            this.setState({ip: data.ip, files: this.state.files});
+                        }.bind(this)
+                      });
+                      $.ajax({
+                                url: "/api/files",
+                                dataType: 'json',
+                                cache: false,
+                                success: function(data){
+                                    console.log(data);
+                                    this.setState({ip: this.state.ip, files: data.Contents});
+                                }.bind(this)
+                      })
+                    },
+                    getInitialState: function(){
+                        return {ip: "",
+                        files: [{
+                            Key: "Loading, please wait...",
+                            Size: 0,
+                            LastModified: Date.now()
+                        }]
+                        };
+                    },
+                    componentDidMount: function(){
+                        this.initProbe();
+                    },
+                    render: function() {
+                        return (
+                            <div className="shareApp">
+                                <h1>localshare</h1>
+                                <h3>Your IP: {this.state.ip}</h3>
+                                <UploadButton />
+                                <FileList files={this.state.files} />
+                                localshare is a temporary, local filesharing service.<br/>
+                                Files uploaded are only visible to other users on the same IP - using a VPN or proxy may cause issues (unless you want to share with other VPN users).<br/>
+                                All files are deleted within 2 days of uploading automatically.
+                            </div>
+                        )
+                    }
+                });
+                
+                var FileList = React.createClass({
+                    fileLinkFormatter: function(file){
+                        file = '<a href="/api/files/' + file + '">' + file + "</a>";
+                        return file;
+                    },
+                    render: function() {
+                        return (
+                            <BootstrapTable data={ this.props.files }>
+                                <TableHeaderColumn dataField='Key' isKey={true} dataFormat={this.fileLinkFormatter}>Filename</TableHeaderColumn>
+                                <TableHeaderColumn dataField='Size'>Size</TableHeaderColumn>
+                                <TableHeaderColumn dataField='LastModified'>Shared on</TableHeaderColumn>
+                            </BootstrapTable>
+                        ); 
+                    }
+                });
+                
+                var UploadButton = React.createClass({
+                    render: function() {
+                        return (
+                            <span>
+                                <button id="uploadButton" className="btn btn-primary"><strong>Upload</strong></button>
+                            </span>
+                        );
+                    }
+                });
+
+                var componentConfig = {
+                    postUrl: function(files){
+                        //Get token synchronously for uploads.
+                        var tokenRequestData = {
+                            filename: files[0].name,
+                            filesize: files[0].size
+                        }
+                        console.log(tokenRequestData);
+                        return $.ajax({
+                            url: "/api/files",
+                            dataType: 'json',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify(tokenRequestData),
+                            async: false
+                        }).responseText;
+                    },
+                    dropzoneSelector: 'body'
+                }
+                
+                var djsconfig = {
+                   clickable: "#uploadButton",
+                   method: 'put'
+                }
+                
+                var djsEventHandlers = {
+                    dragenter: function(){
+                        //TODO: Display a "release to upload" on hover.
+                    },
+                    sending: function(file, xhr) {
+                      var _send = xhr.send;
+                      xhr.send = function() {
+                        _send.call(xhr, file);
+                      };
+                    }
+                }
+
+                ReactDOM.render(
+                    <div className="container">
+                        <ShareApp />
+                        <DropzoneComponent config={componentConfig} djsConfig={djsconfig} eventHandlers={djsEventHandlers}/>
+                    </div>,
+                    $('#content')[0]
+                );
+            </script>
+            </span>
+    </body>
+</html>
